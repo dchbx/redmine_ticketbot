@@ -8,13 +8,13 @@
 </style>
 <table id="plugin_redmine_ticketbot_settings">
   <tbody>
-    <% Setting.plugin_redmine_ticketbot.each do |setting| %>
+    <% ['ticketbot_debug','ticketbot_github_access_token','ticketbot_github_repo','ticketbot_github_pullrequest_link_custom_field_id','ticketbot_github_username_custom_field_id','ticketbot_slack_posting_username','ticketbot_slack_webhook_url','ticketbot_slack_username_custom_field_id'].each do |setting| %>
       <tr>
         <th>
-          <%= setting[0].split('_').map(&:capitalize).join(' ') %>
+          <%= setting.split('_').map(&:capitalize).join(' ') %>
         </th>
         <td>
-          <input type="text" value="<%= settings[setting[0]] %>" name="settings[<%= setting[0] %>]" />
+          <input type="text" value="<%= settings[setting] %>" name="settings[<%= setting %>]" />
         </td>
       </tr>
     <% end %>

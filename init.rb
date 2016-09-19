@@ -10,8 +10,12 @@ Redmine::Plugin.register :redmine_ticketbot do
     'ticketbot_github_access_token'                     =>  '',
     'ticketbot_github_repo'                             =>  '',
     'ticketbot_github_pullrequest_link_custom_field_id' =>  '',
-    'ticketbot_github_username_custom_field_id'         =>  ''
+    'ticketbot_github_username_custom_field_id'         =>  '',
+    'ticketbot_slack_posting_username'                  =>  'Redmine Bot',
+    'ticketbot_slack_webhook_url'                       =>  '',
+    'ticketbot_slack_username_custom_field_id'          =>  '',
   }, :partial => 'settings/ticketbot_settings'
 end
 
-require 'redmine_ticketbot_hooks'
+require 'redmine_ticketbot_github_hooks'
+require 'redmine_ticketbot_slack_hooks'
