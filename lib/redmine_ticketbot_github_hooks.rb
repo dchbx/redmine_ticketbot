@@ -143,7 +143,6 @@ class RedmineTicketbotHook < Redmine::Hook::Listener
           end
           octokit_client.update_issue(github_repo, github_pr_num, :milestone => redmine_version_id_to_github_milestone_id[context[:issue].fixed_version_id])
         end
-
         ## Figure out what the state of the PR should be
         state = "closed"
         unless context[:issue].status.is_closed
@@ -209,7 +208,11 @@ class RedmineTicketbotHook < Redmine::Hook::Listener
           p "13.4: #{pr_body.inspect}"
           p "13.5: #{state.inspect}"
         end
-        update_pr = octokit_client.update_pull_request(github_repo,github_pr_num,:title => "#{context[:issue].id}: #{context[:issue].subject}",:body => pr_body,:state => state)
+        begin
+          update_pr = octokit_client.update_pull_request(github_repo,github_pr_num,:title => "#{context[:issue].id}: #{context[:issue].subject}",:body => pr_body,:state => state)
+        rescue => error
+          p error.inspect
+        end
         if debug
           p "14: #{update_pr.inspect}"
         end

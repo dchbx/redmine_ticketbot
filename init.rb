@@ -14,6 +14,7 @@ Redmine::Plugin.register :redmine_ticketbot do
     'ticketbot_slack_posting_username'                  =>  'Redmine Bot',
     'ticketbot_slack_webhook_url'                       =>  '',
     'ticketbot_slack_username_custom_field_id'          =>  '',
+    'ticketbot_redmine_ignore_user_ids'                 =>  '',
   }, :partial => 'settings/ticketbot_settings'
 end
 
