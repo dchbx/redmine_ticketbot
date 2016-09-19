@@ -1,0 +1,22 @@
+<style>
+  table#plugin_redmine_ticketbot_settings th {
+    text-align: right;
+  }
+  table#plugin_redmine_ticketbot_settings td input {
+    width:250px;
+  }
+</style>
+<table id="plugin_redmine_ticketbot_settings">
+  <tbody>
+    <% Setting.plugin_redmine_ticketbot.each do |setting| %>
+      <tr>
+        <th>
+          <%= setting[0].split('_').map(&:capitalize).join(' ') %>
+        </th>
+        <td>
+          <input type="text" value="<%= settings[setting[0]] %>" name="settings[<%= setting[0] %>]" />
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
