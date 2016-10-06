@@ -15,8 +15,12 @@ Redmine::Plugin.register :redmine_ticketbot do
     'ticketbot_slack_webhook_url'                       =>  '',
     'ticketbot_slack_username_custom_field_id'          =>  '',
     'ticketbot_redmine_ignore_user_ids'                 =>  '',
+    'ticketbot_jenkins_issue_status_id_to_deloy'        =>  '',
+    'ticketbot_jenkins_issue_status_id_after_deploy'    =>  '',
+    'ticketbot_jenkins_branch_for_deploy'               =>  '',
   }, :partial => 'settings/ticketbot_settings'
 end
 
 require 'redmine_ticketbot_github_hooks'
 require 'redmine_ticketbot_slack_hooks'
+require 'redmine_ticketbot_jenkins_hooks'

@@ -13,7 +13,11 @@ class RedmineTicketbotSlackHook < Redmine::Hook::Listener
     debug=to_boolean(Setting.plugin_redmine_ticketbot['ticketbot_debug'])
     begin
       ## Don't post error reporting stuff, since that is already on another channel
-      unless Setting.plugin_redmine_ticketbot['ticketbot_redmine_ignore_user_ids'].split(",").include?(context[:journal].user.id.to_s) && context[:journal].details.count > 0
+      unless Setting.plugin_redmine_ticketbot['ticketbot_redmine_ignore_user_ids'].split(",").map { |s| s.to_i }.include?(context[:journal].user.id)
+        if debug
+          p "Users to ignore: #{Setting.plugin_redmine_ticketbot['ticketbot_redmine_ignore_user_ids'].split(",").inspect}"
+          p "Current user id: #{context[:journal].user.id.to_s}"
+        end
         edit_username = "#{context[:journal].user.firstname} #{context[:journal].user.lastname}"
         unless context[:journal].user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).count == 0 || context[:journal].user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).first.value.nil? || context[:journal].user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).first.value == ""
           edit_username = context[:journal].user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).first.value
@@ -29,7 +33,7 @@ class RedmineTicketbotSlackHook < Redmine::Hook::Listener
         end
         ##loop watchers and add them
         cc_redmine_users.uniq.each do |user|
-          unless user.status == 3
+          unless user.nil? || user.status == 3
             slack_username = "#{user.firstname} #{user.lastname}"
             unless user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).count == 0 || user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).first.value.nil? || user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).first.value == ""
               slack_username = user.custom_values.where(custom_field_id: Setting.plugin_redmine_ticketbot['ticketbot_slack_username_custom_field_id'].to_i).first.value
@@ -57,34 +61,55 @@ class RedmineTicketbotSlackHook < Redmine::Hook::Listener
           slack_channels << "#redmine-bareview"
         end
         redmine_updates_string = "- #{details_to_strings(context[:journal].details,true).join("\n- ")}"
-        unless context[:journal].notes == ""
-          redmine_updates_string = "#{redmine_updates_string}\n- Note added: #{context[:journal].notes}"
+        if redmine_updates_string ==  "- "
+          redmine_updates_string = ""
         end
+        unless context[:journal].notes == ""
+          redmine_updates_string = "#{redmine_updates_string}\n- Note added: ```#{context[:journal].notes[0..100]}"
+          unless context[:journal].notes[0..100] == context[:journal].notes
+            redmine_updates_string = "#{redmine_updates_string}..."
+          end
+          redmine_updates_string = "#{redmine_updates_string}```"
+        end
+
+
         slack_channels.each do |slack_channel|
           Curl.post(Setting.plugin_redmine_ticketbot['ticketbot_slack_webhook_url'], {:payload => {
-            :pretext => slack_text,
             :username => Setting.plugin_redmine_ticketbot['ticketbot_slack_posting_username'],
-            :icon_emoji => ':bar_chart:',
+            #:icon_emoji => ':bar_chart:',
             :channel => slack_channel,
-            :fields => [
-                {
-                  :title => "Subject",
-                  :value => "<#{Setting.where(name: 'protocol').first.value}://#{Setting.where(name: 'host_name').first.value}/issues/#{context[:issue].id}|#{context[:issue].subject}>",
-                },
-                {
-                  :title => "Updates",
-                  :value => redmine_updates_string
-                },
-                {
-                  :title  => "CC",
-                  :value => "#{cc_slack_usernames.uniq.join(', ')}",
-                }
+            :mrkdwn => true,
+            :color => "#628DB6",
+            :attachments => [
+              {
+                :fallback => "Required plain-text summary of the attachment.",
+                :pretext => slack_text,
+                :mrkdwn_in => ["pretext", "text", "fields"],
+                :fields => [
+                  {
+                    :title => "Subject",
+                    :value => "<#{Setting.where(name: 'protocol').first.value}://#{Setting.where(name: 'host_name').first.value}/issues/#{context[:issue].id}|#{context[:issue].subject}>",
+                    :short => false,
+                  },
+                  {
+                    :title => "Updates",
+                    :value => redmine_updates_string,
+                    :short => false,
+                  },
+                  {
+                    :title  => "CC",
+                    :value => "#{cc_slack_usernames.uniq.join(', ')}",
+                    :short => false,
+                  }
+                ]
+              }
             ],
           }.to_json})
         end
       else
         if debug
           p "ignoring updates from user id: #{context[:journal].user.id.to_s}"
+          #p "Updates made: #{context[:journal].details.count}"
         end
       end
     rescue => error

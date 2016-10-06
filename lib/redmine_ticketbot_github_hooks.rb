@@ -1,4 +1,6 @@
-class RedmineTicketbotHook < Redmine::Hook::Listener
+## This will create a github pull request and make sure they are updated.
+
+class RedmineTicketbotGithubHook < Redmine::Hook::Listener
   def controller_issues_edit_after_save(context={})
     debug=to_boolean(Setting.plugin_redmine_ticketbot['ticketbot_debug'])
     unless context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).count == 0
@@ -20,7 +22,7 @@ class RedmineTicketbotHook < Redmine::Hook::Listener
           if branch.name.include? context[:issue].id.to_s
             all_open_prs = octokit_client.pull_requests(github_repo)
             if debug
-              p "3: #{branch_name.inspect}"
+              p "3: #{branch.name.inspect}"
             end
             all_open_prs.each do |pr|
               ##link to a current pull request
@@ -34,16 +36,26 @@ class RedmineTicketbotHook < Redmine::Hook::Listener
             end
             unless new_github_pr_link
               ##create the pull request
-              new_pr = octokit_client.create_pull_request(github_repo,'master',branch.name,context[:issue].subject,"https://devops.dchbx.org/redmine/issues/#{context[:issue].id}")
-              if debug
-                p "4: #{new_pr.inspect}"
+              begin
+                new_pr = octokit_client.create_pull_request(github_repo,'master',branch.name,"#{context[:issue].id}: #{context[:issue].subject}","https://devops.dchbx.org/redmine/issues/#{context[:issue].id}")
+                if debug
+                  p "4: #{new_pr.inspect}"
+                end
+                new_github_pr_link = new_pr.html_url
+              rescue
+                if debug
+                  p "4.1: could not make new PR"
+                end
+                new_github_pr_link = false
               end
-              new_github_pr_link = new_pr.html_url
             end
             ##save new github PR link
-            pr_field = context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).first
-            pr_field.value = new_github_pr_link
-            pr_field.save
+            unless new_github_pr_link == false
+              pr_field = context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).first
+              pr_field.value = new_github_pr_link
+              pr_field.save
+              github_pr_link = new_github_pr_link
+            end
             break
           end
         end
@@ -211,7 +223,7 @@ class RedmineTicketbotHook < Redmine::Hook::Listener
         begin
           update_pr = octokit_client.update_pull_request(github_repo,github_pr_num,:title => "#{context[:issue].id}: #{context[:issue].subject}",:body => pr_body,:state => state)
         rescue => error
-          p error.inspect
+          p "13.6: #{error.inspect}"
         end
         if debug
           p "14: #{update_pr.inspect}"
