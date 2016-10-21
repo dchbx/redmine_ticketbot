@@ -6,59 +6,64 @@ class RedmineTicketbotGithubHook < Redmine::Hook::Listener
     unless context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).count == 0
       github_pr_link = context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).first.value
       github_repo = Setting.plugin_redmine_ticketbot['ticketbot_github_repo']
-      octokit_client = Octokit::Client.new(:access_token => Setting.plugin_redmine_ticketbot['ticketbot_github_access_token'], :auto_paginate => true)
-      if debug
-        p "1: #{github_pr_link.inspect}"
-      end
-      if github_pr_link.nil? || github_pr_link == ""
+      begin
+        octokit_client = Octokit::Client.new(:access_token => Setting.plugin_redmine_ticketbot['ticketbot_github_access_token'], :auto_paginate => true)
         if debug
-          p "2: #{github_pr_link.inspect}"
+          p "1: #{github_pr_link.inspect}"
         end
-        ##try to find a branch that contains the Redmine issue # and open a PR for it
-        #Then add that PR number to the redmine ticket, and sync them up!
-        new_github_pr_link = false
-        all_branches = octokit_client.branches(github_repo)
-        all_branches.each do |branch|
-          if branch.name.include? context[:issue].id.to_s
-            all_open_prs = octokit_client.pull_requests(github_repo)
-            if debug
-              p "3: #{branch.name.inspect}"
-            end
-            all_open_prs.each do |pr|
-              ##link to a current pull request
-              if pr.head.ref == branch.name
-                if debug
-                  p "3.1: #{pr.inspect}"
-                end
-                new_github_pr_link = pr.html_url
-                break
+        if github_pr_link.nil? || github_pr_link == ""
+          if debug
+            p "2: #{github_pr_link.inspect}"
+          end
+          ##try to find a branch that contains the Redmine issue # and open a PR for it
+          #Then add that PR number to the redmine ticket, and sync them up!
+          new_github_pr_link = false
+          all_branches = octokit_client.branches(github_repo)
+          all_branches.each do |branch|
+            if branch.name.include? context[:issue].id.to_s
+              all_open_prs = octokit_client.pull_requests(github_repo)
+              if debug
+                p "3: #{branch.name.inspect}"
               end
-            end
-            unless new_github_pr_link
-              ##create the pull request
-              begin
-                new_pr = octokit_client.create_pull_request(github_repo,'master',branch.name,"#{context[:issue].id}: #{context[:issue].subject}","https://devops.dchbx.org/redmine/issues/#{context[:issue].id}")
-                if debug
-                  p "4: #{new_pr.inspect}"
+              all_open_prs.each do |pr|
+                ##link to a current pull request
+                if pr.head.ref == branch.name
+                  if debug
+                    p "3.1: #{pr.inspect}"
+                  end
+                  new_github_pr_link = pr.html_url
+                  break
                 end
-                new_github_pr_link = new_pr.html_url
-              rescue
-                if debug
-                  p "4.1: could not make new PR"
-                end
-                new_github_pr_link = false
               end
+              unless new_github_pr_link
+                ##create the pull request
+                begin
+                  new_pr = octokit_client.create_pull_request(github_repo,'master',branch.name,"#{context[:issue].id}: #{context[:issue].subject}","https://devops.dchbx.org/redmine/issues/#{context[:issue].id}")
+                  if debug
+                    p "4: #{new_pr.inspect}"
+                  end
+                  new_github_pr_link = new_pr.html_url
+                rescue
+                  if debug
+                    p "4.1: could not make new PR"
+                  end
+                  new_github_pr_link = false
+                end
+              end
+              ##save new github PR link
+              unless new_github_pr_link == false
+                pr_field = context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).first
+                pr_field.value = new_github_pr_link
+                pr_field.save
+                github_pr_link = new_github_pr_link
+              end
+              break
             end
-            ##save new github PR link
-            unless new_github_pr_link == false
-              pr_field = context[:issue].custom_values.where('custom_field_id = ?',Setting.plugin_redmine_ticketbot['ticketbot_github_pullrequest_link_custom_field_id'].to_i).first
-              pr_field.value = new_github_pr_link
-              pr_field.save
-              github_pr_link = new_github_pr_link
-            end
-            break
           end
         end
+      rescue => error
+        p 'something bad in github hooks happened!'
+        p error.inspect
       end
       unless github_pr_link.nil? || github_pr_link == ""
         if debug
@@ -147,7 +152,10 @@ class RedmineTicketbotGithubHook < Redmine::Hook::Listener
           103 => "1",
           104 => "2",
           106 => "3",
-          107 => "4"
+          107 => "4",
+          110 => "5",
+          109 => "6",
+          112 => "8",
         }
         unless redmine_version_id_to_github_milestone_id[context[:issue].fixed_version_id].nil?
           if debug
